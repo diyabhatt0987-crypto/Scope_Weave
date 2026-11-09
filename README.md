@@ -27,8 +27,8 @@ There are no Python package dependencies or external fonts. The browser app and 
    - Choose **Remediation**, select bugs from the active lab, and choose **Track selected bugs**. Save fix notes and status for each tracked bug. After saving **Fix reported**, use **Record retest** to log your result and evidence from the approved scope. The report preview and PDF show these details for the included findings.
    - Optionally select Groq in the planner, review the cloud-sharing notice, and ask a question about the available evidence. The model returns a summary and source-linked observations plus a permission-checked next step. It cannot start scans.
 6. If the scope permits Layer review, record an approval or rejection decision for demonstration. An approval is recorded as not executed.
-7. Choose **Report options**, select a mode, and open **Preview report**. Select **Print / Save PDF** inside the preview to print or use the browser’s **Save as PDF** destination.
-8. Choose **Saved PDFs** to reopen previously exported ScopeWeave PDFs from your Downloads folder. The list reads matching local reports by their PDF title, with the most recent first. Save new reports in Downloads and choose **Refresh** to see them there.
+7. Choose **Report options**, select a mode, and open **Preview report**. Choose **Save PDF** to save directly to **Downloads → ScopeWeave Reports**. This uses Chrome or Microsoft Edge in the background. **Print** opens the regular browser print dialog.
+8. Choose **Saved PDFs** to reopen reports from **ScopeWeave Reports** and earlier ScopeWeave PDFs in Downloads. The newest reports appear first.
 
 ## Assessment features
 
@@ -131,9 +131,9 @@ The application sends target traffic only when the analyst explicitly starts a Z
 - Findings are scanner-reported and unvalidated unless their source says otherwise.
 - Finding reviews are analyst-entered and saved for the active lab in this browser. A false-positive decision stays visible with the original scanner evidence for traceability. Recording a finding review does not execute a test.
 - Review priority starts from source-reported severity. A separate project score uses the stated weighted formula only when source CVSS and all three analyst-entered 0–10 components are present. Missing values do not receive invented defaults. The score does not confirm a vulnerability.
-- Report export uses the browser's Print → Save as PDF feature.
+- Direct PDF saving uses a local Chrome or Edge installation. Browser printing is available separately.
 - **Delete scope** moves a scope and its assessment records out of the active workspace. Use **Scope Trash → Restore** to bring them back in the same browser.
-- **Delete** in **Saved PDFs** moves a matching ScopeWeave report from Downloads to a local Trash folder. Use **PDF Trash → Restore** to put it back in Downloads.
+- **Delete** in **Saved PDFs** moves a matching ScopeWeave report to Trash. Use **PDF Trash → Restore** to put it back in its original report folder.
 - The organizer authorization reference is a local analyst attestation; the app cannot independently confirm the organizer's permission.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for data flow, trust boundaries, and implemented capability status.

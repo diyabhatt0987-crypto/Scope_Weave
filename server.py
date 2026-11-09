@@ -1,6 +1,8 @@
 """Serve ScopeWeave, saved reports, consented AI reviews, and scoped ZAP crawls."""
 
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from html import escape
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode, urlsplit
@@ -11,6 +13,8 @@ import os
 import re
 import shutil
 import stat
+import subprocess
+import tempfile
 import threading
 import time
 import uuid
@@ -22,6 +26,7 @@ ADDRESS = "127.0.0.1"
 PORT = 8765
 ZAP_API = "http://127.0.0.1:8080"
 MAX_REQUEST_BYTES = 64 * 1024
+MAX_PDF_EXPORT_BYTES = 8 * 1024 * 1024
 MAX_ALERTS = 150
 MAX_SPIDER_SECONDS = 180
 MAX_PASSIVE_WAIT_SECONDS = 45
@@ -48,6 +53,7 @@ SAVED_PDF_TITLE_BYTES = {
 SAVED_PDF_TITLE_PATTERN = re.compile(rb"/Title[\x00\t\n\f\r ]*(?:\(([^)]{1,100})\)|<([0-9a-fA-F\s]{1,192})>)")
 SAVED_PDF_TAIL_BYTES = 128 * 1024
 SAVED_PDF_TRASH_LOCK = threading.Lock()
+PDF_EXPORT_LOCK = threading.Lock()
 SAVED_PDF_NAME_PATTERN = re.compile(r'[^<>:"/\\|?*\x00-\x1f]{1,251}\.pdf', re.IGNORECASE)
 PLANNER_ACTIONS = {
     "review_existing_evidence": {"label": "Review the evidence already collected", "requires": []},
@@ -621,6 +627,91 @@ def list_saved_pdfs(directory):
     return sorted(reports, key=lambda item: (-item["modifiedAt"], item["name"].casefold()))
 
 
+def report_library_directory(downloads, create=False):
+    directory = downloads / "ScopeWeave Reports"
+    if create:
+        directory.mkdir(exist_ok=True)
+    info = directory.lstat()
+    if not stat.S_ISDIR(info.st_mode) or is_reparse_point(info):
+        raise PermissionError("The ScopeWeave reports folder is not a direct directory.")
+    return directory
+
+
+class PrintableReport(HTMLParser):
+    """Rebuild the report body using only static document elements."""
+
+    TAGS = frozenset("main header footer article section div h1 h2 h3 h4 p small span b strong em pre ul ol li table thead tbody tr th td br".split())
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag not in self.TAGS:
+            raise ValueError("The report contains an unsupported element.")
+        classes = " ".join(value for name, value in attrs if name == "class" and value)
+        attribute = f' class="{escape(classes, quote=True)}"' if classes else ""
+        self.parts.append(f"<{tag}{attribute}>")
+
+    def handle_endtag(self, tag):
+        if tag in self.TAGS and tag != "br":
+            self.parts.append(f"</{tag}>")
+
+    def handle_data(self, data):
+        self.parts.append(escape(data, quote=False))
+
+
+def printable_report_html(body, styles):
+    if not isinstance(body, str) or not body.strip() or not isinstance(styles, str) or "<" in styles:
+        raise ValueError("The report content is invalid.")
+    parser = PrintableReport()
+    parser.feed(body)
+    parser.close()
+    return (
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; '
+        'style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'">'
+        f'<title>{SAVED_PDF_TITLES[0]}</title><style>{styles}</style></head>'
+        f'<body>{"".join(parser.parts)}</body></html>'
+    )
+
+
+def pdf_browser():
+    for variable in ("ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA"):
+        folder = os.environ.get(variable)
+        if folder:
+            for executable in ("Google/Chrome/Application/chrome.exe", "Microsoft/Edge/Application/msedge.exe"):
+                candidate = Path(folder) / executable
+                if candidate.is_file():
+                    return str(candidate)
+    for executable in ("google-chrome", "chromium", "chromium-browser", "microsoft-edge"):
+        if path := shutil.which(executable):
+            return path
+    raise RuntimeError("Install Chrome or Microsoft Edge to save PDFs directly to ScopeWeave.")
+
+
+def export_report_pdf(directory, html):
+    browser = pdf_browser()
+    with tempfile.TemporaryDirectory(prefix=".pdf-export-", dir=directory, ignore_cleanup_errors=True) as temporary:
+        staging = Path(temporary)
+        source = staging / "report.html"
+        source.write_text(html, encoding="utf-8")
+        output = staging / "report.pdf"
+        env = {key: value for key, value in os.environ.items() if key.upper() not in {"GROQ_API_KEY", "ZAP_API_KEY"}}
+        subprocess.run([
+            browser, "--headless", "--no-first-run", "--disable-background-networking",
+            "--disable-sync", "--disable-component-update", "--no-pdf-header-footer",
+            f"--user-data-dir={staging / 'browser'}", f"--print-to-pdf={output}", source.as_uri(),
+        ], check=True, timeout=45, env=env, stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        pdf, _ = open_saved_pdf(staging, output.name)
+        pdf.close()
+        name = f"ScopeWeave Report {time.strftime('%Y-%m-%d %H%M%S')}-{uuid.uuid4().hex[:8]}.pdf"
+        output.rename(directory / name)
+        return name
+
+
 def saved_pdf_trash(downloads, create=False):
     directory = downloads / ".sentinel-desk-trash"
     if create:
@@ -690,31 +781,55 @@ class LocalOnlyHandler(SimpleHTTPRequestHandler):
                         trashed = list_saved_pdfs(saved_pdf_trash(downloads))
                     except FileNotFoundError:
                         trashed = []
+                    try:
+                        library = report_library_directory(downloads)
+                    except FileNotFoundError:
+                        library = None
+                    if library:
+                        reports.extend({**item, "library": True} for item in list_saved_pdfs(library))
+                        try:
+                            library_trash = saved_pdf_trash(library)
+                        except FileNotFoundError:
+                            library_trash = None
+                        if library_trash:
+                            trashed.extend({**item, "library": True} for item in list_saved_pdfs(library_trash))
             except FileNotFoundError:
                 reports, trashed = [], []
             except OSError:
-                return self.send_json({"error": "Could not read saved reports from Downloads."}, 503)
-            return self.send_json({"reports": reports, "trashed": trashed})
+                return self.send_json({"error": "Could not read the report folders."}, 503)
+            return self.send_json({
+                "reports": sorted(reports, key=lambda item: -item["modifiedAt"]),
+                "trashed": sorted(trashed, key=lambda item: -item["modifiedAt"]),
+            })
 
         if self.headers.get_content_type() != "application/json":
             return self.send_json({"error": "Send a saved report name as JSON."}, 415)
         try:
             length = int(self.headers.get("Content-Length", "0"))
-            if not 0 < length <= 4096:
+            limit = MAX_PDF_EXPORT_BYTES if self.path == "/api/saved-pdfs/export" else 4096
+            if not 0 < length <= limit:
                 raise ValueError
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
-            name = payload.get("name") if isinstance(payload, dict) else None
+            if not isinstance(payload, dict):
+                raise ValueError
         except (ValueError, RecursionError):
             return self.send_json({"error": "Invalid saved report request."}, 400)
+        if self.path == "/api/saved-pdfs/export":
+            return self.handle_pdf_export(payload)
+        name = payload.get("name")
+        library = payload.get("library", False)
+        if not isinstance(library, bool):
+            return self.send_json({"error": "Invalid report folder."}, 400)
         if not valid_saved_pdf_name(name):
             return self.send_json({"error": "Invalid saved report name."}, 400)
         if self.path in {"/api/saved-pdfs/trash", "/api/saved-pdfs/restore"}:
             try:
                 with SAVED_PDF_TRASH_LOCK:
                     downloads = saved_pdf_directory()
+                    directory = report_library_directory(downloads) if library else downloads
                     deleting = self.path.endswith("/trash")
-                    trash = saved_pdf_trash(downloads, create=deleting)
-                    source_directory, destination_directory = (downloads, trash) if deleting else (trash, downloads)
+                    trash = saved_pdf_trash(directory, create=deleting)
+                    source_directory, destination_directory = (directory, trash) if deleting else (trash, directory)
                     move_saved_pdf(source_directory, destination_directory, name)
             except FileExistsError:
                 return self.send_json({"error": "A PDF with that name already exists at the destination. Rename it first."}, 409)
@@ -724,9 +839,11 @@ class LocalOnlyHandler(SimpleHTTPRequestHandler):
                 return self.send_json({"error": "Could not move this PDF. Close it if it is open and try again."}, 503)
             return self.send_json({"name": name})
         try:
-            source, info = open_saved_pdf(saved_pdf_directory(), name)
+            downloads = saved_pdf_directory()
+            directory = report_library_directory(downloads) if library else downloads
+            source, info = open_saved_pdf(directory, name)
         except FileNotFoundError:
-            return self.send_json({"error": "Saved report was not found in Downloads."}, 404)
+            return self.send_json({"error": "Saved report was not found."}, 404)
         except OSError:
             return self.send_json({"error": "Could not open the saved report."}, 503)
         with source:
@@ -736,6 +853,24 @@ class LocalOnlyHandler(SimpleHTTPRequestHandler):
             self.send_header("Content-Length", str(info.st_size))
             self.end_headers()
             shutil.copyfileobj(source, self.wfile)
+
+    def handle_pdf_export(self, payload):
+        try:
+            html = printable_report_html(payload.get("body"), payload.get("styles"))
+        except ValueError as error:
+            return self.send_json({"error": str(error)}, 400)
+        if not PDF_EXPORT_LOCK.acquire(blocking=False):
+            return self.send_json({"error": "Another report is being saved. Try again in a moment."}, 409)
+        try:
+            directory = report_library_directory(saved_pdf_directory(), create=True)
+            name = export_report_pdf(directory, html)
+        except RuntimeError as error:
+            return self.send_json({"error": str(error)}, 503)
+        except (OSError, subprocess.SubprocessError):
+            return self.send_json({"error": "Could not save the PDF. Try again, or use Print to save a copy in Downloads."}, 503)
+        finally:
+            PDF_EXPORT_LOCK.release()
+        return self.send_json({"name": name}, 201)
 
     def handle_planner_suggestion(self):
         if not self.app_origin_allowed():
@@ -846,7 +981,7 @@ class LocalOnlyHandler(SimpleHTTPRequestHandler):
         })
 
     def do_POST(self):
-        if self.path in {"/api/saved-pdfs", "/api/saved-pdfs/open", "/api/saved-pdfs/trash", "/api/saved-pdfs/restore"}:
+        if self.path in {"/api/saved-pdfs", "/api/saved-pdfs/open", "/api/saved-pdfs/trash", "/api/saved-pdfs/restore", "/api/saved-pdfs/export"}:
             return self.handle_saved_pdfs()
         if self.path == "/api/planner/suggest":
             return self.handle_planner_suggestion()

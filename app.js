@@ -2261,7 +2261,7 @@
     state.loadingSavedPdfs = true;
     refresh.disabled = true;
     list.setAttribute('aria-busy', 'true');
-    status.textContent = 'Looking for saved reports in Downloads…';
+    status.textContent = 'Looking for saved reports…';
     try {
       const response = await fetch('/api/saved-pdfs', { method: 'POST' });
       if (!response.ok) throw new Error('Could not load saved PDFs.');
@@ -2270,8 +2270,8 @@
       trashList.innerHTML = trashed.map((report) => savedPdfRow(report, true)).join('')
         || '<li class="muted-note">PDF Trash is empty.</li>';
       status.textContent = reports.length
-        ? `${reports.length} saved ${reports.length === 1 ? 'report' : 'reports'} in Downloads`
-        : 'No ScopeWeave reports found in Downloads. Save your next PDF there, then choose Refresh.';
+        ? `${reports.length} saved ${reports.length === 1 ? 'report' : 'reports'}`
+        : 'No saved reports yet. Open a report preview and choose Save PDF.';
     } catch (_) {
       list.replaceChildren();
       trashList.replaceChildren();
@@ -2283,11 +2283,11 @@
     }
   }
 
-  function savedPdfRow({ name, size, modifiedAt }, trashed) {
+  function savedPdfRow({ name, size, modifiedAt, library = false }, trashed) {
     const filename = escapeHTML(name);
     const buttons = trashed
-      ? `<button class="secondary-button compact" type="button" data-restore-pdf="${filename}">Restore</button>`
-      : `<button class="secondary-button compact" type="button" data-open-saved-pdf="${filename}">Open PDF</button><button class="delete-button" type="button" data-trash-pdf="${filename}">Delete</button>`;
+      ? `<button class="secondary-button compact" type="button" data-restore-pdf="${filename}" data-library="${library}">Restore</button>`
+      : `<button class="secondary-button compact" type="button" data-open-saved-pdf="${filename}" data-library="${library}">Open PDF</button><button class="delete-button" type="button" data-trash-pdf="${filename}" data-library="${library}">Delete</button>`;
     return `<li class="saved-pdf-row"><span class="saved-pdf-icon" aria-hidden="true">PDF</span>
       <div class="saved-pdf-details"><strong>${filename}</strong><small>${escapeHTML(formatDate(modifiedAt))} · ${escapeHTML(savedPdfSize(size))}</small></div>
       <div class="saved-pdf-actions">${buttons}</div></li>`;
@@ -2301,11 +2301,11 @@
     button.disabled = true;
     try {
       const response = await fetch(`/api/saved-pdfs/${deleting ? 'trash' : 'restore'}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, library: button.dataset.library === 'true' }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Could not move the PDF.');
-      toast(deleting ? 'PDF moved to Trash. Restore it from PDF Trash.' : 'PDF restored to Downloads.');
+      toast(deleting ? 'PDF moved to Trash. Restore it from PDF Trash.' : 'PDF restored to its report folder.');
     } catch (error) {
       toast(error.message || 'Could not move the PDF.', true);
     } finally {
@@ -2326,7 +2326,7 @@
       const response = await fetch('/api/saved-pdfs/open', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: button.dataset.openSavedPdf }),
+        body: JSON.stringify({ name: button.dataset.openSavedPdf, library: button.dataset.library === 'true' }),
       });
       if (!response.ok || !response.headers.get('Content-Type')?.startsWith('application/pdf')) throw new Error('PDF unavailable.');
       const file = await response.blob();
@@ -2434,8 +2434,33 @@
     reportWindow.document.write(html);
     reportWindow.document.close();
     reportWindow.document.getElementById('reportPreviewPrint').addEventListener('click', () => reportWindow.print());
+    reportWindow.document.getElementById('reportPreviewSave').addEventListener('click', () => saveReportPdf(reportWindow.document));
     $('#reportOptionsDialog').close();
     recordActivity('REPORT_PREPARED', `${scope.origin} · ${REPORT_MODES[mode]} · ${findings.length} report entries`);
+  }
+
+  async function saveReportPdf(preview) {
+    const button = preview.getElementById('reportPreviewSave');
+    const status = preview.getElementById('reportPreviewSaveStatus');
+    button.disabled = true;
+    status.textContent = 'Saving PDF…';
+    try {
+      const response = await fetch('/api/saved-pdfs/export', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          body: preview.querySelector('.report-paper').outerHTML,
+          styles: preview.querySelector('style').textContent,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not save the report.');
+      status.textContent = `Saved in Downloads → ScopeWeave Reports: ${result.name}`;
+      button.textContent = 'PDF saved';
+      if ($('#page-saved-pdfs').classList.contains('active')) loadSavedPdfs();
+    } catch (error) {
+      status.textContent = error.message || 'Could not save the report. Try again.';
+      button.disabled = false;
+    }
   }
 
   function reportFindingReview(finding, merged) {
@@ -2576,7 +2601,7 @@
       .remediation-record{margin:9px 0;padding:8px 10px;border:1px solid #bad6d4;border-left:3px solid #188d7b}.remediation-record h4{margin:0 0 3px;color:#126e67}.remediation-note{white-space:pre-wrap;overflow-wrap:anywhere}
       .finding-triage-record{margin:9px 0;padding:4px 8px;border-left:3px solid #514489;background:#f3f1f7}.finding-triage-record span{white-space:pre-wrap;overflow-wrap:anywhere}
       </style></head><body>
-      <div class="report-controls"><b>Report preview · ${escapeHTML(REPORT_MODES[mode])}</b><button id="reportPreviewPrint" type="button">Print / Save PDF</button></div>
+      <div class="report-controls"><b>Report preview · ${escapeHTML(REPORT_MODES[mode])}</b><div><button id="reportPreviewSave" type="button">Save PDF</button> <button id="reportPreviewPrint" type="button">Print</button></div><span id="reportPreviewSaveStatus" role="status"></span></div>
       <main class="report-paper"><header><small>SCOPEWEAVE / EVIDENCE-FIRST VAPT</small><h1>Security Assessment Report</h1><p>Generated ${escapeHTML(new Date().toLocaleString())} · ${escapeHTML(REPORT_MODES[mode])}</p></header>
       <h2>1. Executive summary</h2><p>This report contains ${findings.length} ${findings.length === 1 ? 'finding group' : 'finding groups'} for the registered lab. ${counts.Critical + counts.High} are source-rated High or Critical. Scanner observations, including those marked as false positives by the analyst, are retained for traceability. ${!onlyDuplicates && liveZapRuns ? `${liveZapRuns} local ZAP Spider crawl(s) with passive checks were recorded.` : ''}</p>
       <p class="duplicate-note"><b>Duplicate summary</b> · ${escapeHTML(duplicateSummary)}</p>
