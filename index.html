@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f1f7">
+  <title>ScopeWeave — VAPT Assessment</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main id="workspaceEntry" class="workspace-entry">
+    <section class="panel workspace-entry-card" aria-labelledby="workspaceEntryTitle">
+      <span class="eyebrow">LOCAL VAPT WORKSPACE</span>
+      <h1 id="workspaceEntryTitle">Welcome to ScopeWeave</h1>
+      <p>Open the assessment workspace to review findings and reports.</p>
+      <button id="enterWorkspace" class="primary-button" type="button">Enter workspace <b aria-hidden="true">→</b></button>
+    </section>
+  </main>
+  <div id="workspace" class="app-shell" hidden>
+    <aside class="sidebar">
+      <a class="brand" href="#overview" aria-label="ScopeWeave home">
+        <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span><strong>Scope<span>Weave</span></strong><small>VAPT ASSESSMENT AGENT</small></span>
+      </a>
+
+      <div class="workspace-label">WORKSPACE</div>
+      <nav class="nav-list" aria-label="Main navigation">
+        <button class="nav-item active" data-page="overview" data-title="Assessment"><span class="nav-icon">◫</span>Assessment</button>
+        <button class="nav-item" data-page="scope" data-title="Scope & permissions"><span class="nav-icon">◎</span>Scope & permissions</button>
+        <button class="nav-item" data-page="findings" data-title="Findings"><span class="nav-icon">⌁</span>Findings <span class="nav-count" id="navFindingCount">0</span></button>
+        <button class="nav-item" type="button" data-page="saved-pdfs" data-title="Saved PDFs" title="Saved PDFs"><span class="nav-icon" aria-hidden="true">▤</span>Saved PDFs</button>
+        <button class="nav-item" data-page="integrations" data-title="Scanner results"><span class="nav-icon">⎇</span>Scanner results</button>
+        <button class="nav-item" data-page="activity" data-title="Decision log"><span class="nav-icon">◷</span>Decision log</button>
+      </nav>
+
+      <div class="sidebar-spacer"></div>
+      <div class="boundary-card">
+        <div class="boundary-icon">◆</div>
+        <div><strong>Scoped scan mode</strong><p>ZAP crawl starts only after a confirmed click for an approved lab.</p></div>
+        <span class="status-dot"></span>
+      </div>
+      <div class="sidebar-footer"><span class="avatar">DA</span><span><strong>Assessment analyst</strong><small>Local workspace</small></span><span class="more">•••</span></div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div class="breadcrumbs"><span>Workspace</span><b>/</b><strong id="pageTitle">Assessment</strong></div>
+        <div class="topbar-actions"><span class="local-badge"><i></i>LOCAL · ON-DEMAND</span><button class="secondary-button compact" id="reportButton" type="button" aria-haspopup="dialog" disabled>Report options</button><button class="icon-button" id="helpButton" title="About this prototype">?</button></div>
+      </header>
+
+      <section class="page active" id="page-overview">
+        <div class="welcome-row">
+          <div><div class="eyebrow">EVIDENCE-FIRST SECURITY WORKFLOW</div><h1>Assessment workspace</h1><p class="lede">Plan the review, bring in approved scanner evidence, and prepare a traceable report.</p></div>
+          <div class="date-chip"><span class="pulse"></span><span>Sandbox-first prototype</span></div>
+        </div>
+
+        <section id="gettingStarted" class="getting-started">
+          <div class="getting-icon">1</div>
+          <div class="getting-copy"><div class="eyebrow">YOUR NEXT STEP</div><h2>Add your authorized lab</h2><p>Enter its exact URL, approval reference, excluded paths, and allowed actions before planning a scan or importing reports.</p><details class="setup-checklist"><summary>What happens after setup?</summary><div class="getting-steps"><span><b>1</b> Register the approved lab and its rules</span><span><b>2</b> Generate a review plan for that lab</span><span><b>3</b> Run the allowed ZAP crawl or import scanner reports</span></div></details></div>
+          <button class="secondary-button" data-goto="scope">Set up lab</button>
+        </section>
+
+        <div class="metric-grid">
+          <article class="metric-card"><div class="metric-top"><span>AUTHORIZED SCOPES</span><span class="metric-glyph teal">◎</span></div><strong id="metricScopes">0</strong><small>Local or approved lab records</small></article>
+          <article class="metric-card"><div class="metric-top"><span>IMPORTED FINDINGS</span><span class="metric-glyph violet">⌁</span></div><strong id="metricFindings">0</strong><small>Evidence groups after correlation</small></article>
+          <article class="metric-card"><div class="metric-top"><span>HIGH / CRITICAL</span><span class="metric-glyph orange">↗</span></div><strong id="metricHigh">0</strong><small>Scanner-reported, unvalidated</small></article>
+          <article class="metric-card"><div class="metric-top"><span>DECISIONS LOGGED</span><span class="metric-glyph blue">◷</span></div><strong id="metricDecisions">0</strong><small>Human review records</small></article>
+        </div>
+
+        <section class="panel adaptive-next-panel" aria-labelledby="adaptiveNextHeading">
+          <div class="panel-heading"><div><div class="eyebrow">ADAPTIVE PLANNING</div><h2 id="adaptiveNextHeading">Live next step</h2><p class="coverage-intro">This recommendation updates on this computer as you import approved scanner reports and review findings.</p></div><span class="step-badge">LOCAL</span></div>
+          <div id="coverageNextStep" class="coverage-next-step" aria-live="polite"></div>
+          <div class="coverage-actions">
+            <button id="coverageReviewFindingButton" class="secondary-button" type="button" hidden>Open recommended finding</button>
+            <button id="coverageRefreshPlanButton" class="text-button" type="button" disabled>Ask AI about this evidence <span aria-hidden="true">→</span></button>
+          </div>
+          <details id="coverageToolChoices" class="coverage-tool-choices">
+            <summary>Why use or skip a tool?</summary>
+            <ul id="coverageToolChoicesList" role="list"></ul>
+          </details>
+        </section>
+
+        <details class="overview-foldout coverage-foldout">
+          <summary class="overview-foldout-summary"><span><strong>Scanner report status</strong><small>See which reports and findings are recorded for this lab</small></span><span class="foldout-chevron" aria-hidden="true">⌄</span></summary>
+          <section class="panel coverage-panel" aria-labelledby="coverageHeading">
+          <div class="notice-strip"><span class="notice-symbol">i</span><span><strong>A limited ZAP check is available.</strong> It checks pages from the registered lab after you confirm. Other tools provide report files to import.</span><button class="text-button" data-goto="integrations">Open scanner results →</button></div>
+          <div class="panel-heading"><div><div class="eyebrow">EVIDENCE COVERAGE</div><h2 id="coverageHeading">What has been reviewed?</h2><p class="coverage-intro">See the latest import result and linked findings for each scanner.</p></div><span class="step-badge">IMPORT STATUS</span></div>
+          <div id="coverageToolGrid" class="coverage-tool-grid" aria-live="polite"></div>
+          <p class="coverage-note">A missing or empty report does not prove the lab is safe. To run the allowed ZAP check or import a report, open Scanner results.</p>
+          </section>
+        </details>
+
+        <details class="overview-foldout plan-foldout" id="overviewPlan" data-scope-id="">
+          <summary class="overview-foldout-summary"><span><strong>Make a review plan</strong><small>Choose the lab and describe what to review</small></span><span class="foldout-chevron" aria-hidden="true">⌄</span></summary>
+          <section class="panel planner-panel">
+            <div class="panel-heading"><div><div class="eyebrow">ASK THE PLANNER</div><h2>What should we review next?</h2></div><span class="step-badge">PLAN</span></div>
+            <form id="planForm">
+              <label for="targetSelect">Authorized lab target</label>
+              <select id="targetSelect" required><option value="">Register a scope first</option></select>
+              <label for="plannerProvider">AI provider</label>
+              <select id="plannerProvider"><option value="ollama">Local Ollama · next-step suggestion</option><option value="groq">Groq cloud · evidence analysis</option></select>
+              <div id="plannerCloudNotice" class="planner-cloud-notice" hidden>
+                <p>Groq reviews a bounded evidence summary online. Your target, scope rules, question, scanner names with available reports, and up to 10 finding summaries with review statuses and short source excerpts will leave this computer. Analyst review notes, full report files, and API keys stay on this computer.</p>
+                <div id="plannerEvidenceWarnings" class="planner-evidence-warnings" hidden>
+                  <details id="plannerWarningDetails">
+                    <summary id="plannerWarningCount"></summary>
+                    <ul id="plannerWarningList"></ul>
+                  </details>
+                  <p>These fields contain text that may be instructions aimed at AI. Check the excerpts and their sources before sharing.</p>
+                  <label class="planner-consent" for="excludeFlaggedText"><input id="excludeFlaggedText" type="checkbox" checked><span>Exclude flagged fields from this Groq request</span></label>
+                </div>
+                <label class="planner-consent" for="plannerCloudConsent"><input id="plannerCloudConsent" type="checkbox"><span>I allow this selected lab's summary to be sent to Groq for this review.</span></label>
+              </div>
+              <label for="requestText">Ask in your own words</label>
+              <textarea id="requestText" rows="3" maxlength="600" placeholder="For example: review the imported web evidence">Review the authorized web application and summarize available scanner evidence.</textarea>
+              <div class="form-foot"><span id="plannerProviderHint">Local Ollama stays on this computer. If it is unavailable, the app clearly labels its rule-based backup.</span><button class="primary-button" type="submit" id="askPlannerButton"><span>Ask planner</span><b>→</b></button></div>
+            </form>
+            <div id="planResult" class="plan-result empty-state" aria-live="polite"><span class="empty-icon">✳</span><strong>Your planner response will appear here</strong><p>The suggestion will be checked against the lab’s saved permissions before it is shown.</p></div>
+          </section>
+        </details>
+
+        <details class="overview-foldout scope-foldout">
+          <summary class="overview-foldout-summary"><span><strong>Lab and import options</strong><small>Check the active lab or import approved scanner results</small></span><span class="foldout-chevron" aria-hidden="true">⌄</span></summary>
+          <aside class="right-rail">
+            <section class="panel scope-summary">
+              <div class="panel-heading"><div><div class="eyebrow">SCOPE GATE</div><h2>Lab authorization</h2></div><span class="lock-icon">⌑</span></div>
+              <div id="scopeSummary" class="scope-empty"><span class="scope-ring">◎</span><strong>No lab scope registered</strong><p>Add your own local lab or an organizer-approved target, authorization reference, excluded paths, and allowed actions.</p><button class="secondary-button" data-goto="scope">Manage scope</button></div>
+            </section>
+            <section class="panel next-panel">
+              <div class="panel-heading"><div><div class="eyebrow">NEXT STEP</div><h2>Evidence intake</h2></div><span class="upload-glyph">⇧</span></div>
+              <p>Scanner files and their source evidence are kept together for review.</p>
+              <small class="muted-note">To add a report, open Scanner results. Supported: Nmap, Nessus, Greenbone, Nikto, ZAP and Burp exports.</small>
+            </section>
+          </aside>
+        </details>
+
+        <details class="overview-foldout workflow-foldout">
+          <summary class="overview-foldout-summary"><span><strong>Project steps</strong><small>See how the work moves from setup to report</small></span><span class="foldout-chevron" aria-hidden="true">⌄</span></summary>
+          <section class="panel workflow-panel">
+          <div class="panel-heading"><div><div class="eyebrow">ASSESSMENT LIFECYCLE</div><h2>From scope to client report</h2></div><span class="muted-note">Current build: local planning + file imports</span></div>
+          <div class="workflow-steps">
+            <div class="workflow-step current"><span>01</span><b>Scope</b><small>Target & permissions</small></div><i>→</i><div class="workflow-step"><span>02</span><b>Plan</b><small>Explain next steps</small></div><i>→</i><div class="workflow-step"><span>03</span><b>Evidence</b><small>Import approved results</small></div><i>→</i><div class="workflow-step"><span>04</span><b>Review</b><small>Correlate & prioritize</small></div><i>→</i><div class="workflow-step"><span>05</span><b>Report</b><small>Print-ready PDF</small></div>
+          </div>
+          </section>
+        </details>
+      </section>
+
+      <section class="page" id="page-scope">
+        <div class="welcome-row"><div><div class="eyebrow">SAFETY BOUNDARY</div><h1>Scope & permissions</h1><p class="lede">Register the exact approved HTTP(S) origin, its permitted actions, and paths that must stay excluded. A different port, subdomain, or origin needs its own approval and scope record.</p></div></div>
+        <div class="scope-layout">
+          <section class="panel">
+            <div class="panel-heading"><div><div class="eyebrow">REGISTER LAB</div><h2>Add an authorized scope</h2></div><span class="step-badge">REQUIRED</span></div>
+            <form id="scopeForm" class="scope-form">
+              <label for="scopeAuthorizationType">Authorization basis</label>
+              <select id="scopeAuthorizationType" required><option value="self-owned-local-lab">My own local practice lab</option><option value="organizer-designated-lab">Organizer-approved lab</option></select>
+              <small id="scopeAuthorizationHelp" class="scope-help">Use your own running lab on this computer. This option accepts localhost, 127.0.0.1 or ::1 only.</small>
+              <button id="fillJuiceShopScope" class="secondary-button" type="button">Fill local Juice Shop details</button>
+              <small class="scope-help">This fills the form only. Your own Juice Shop instance must already be running; it does not install the lab, grant permission, save a scope, or start a scan.</small>
+              <label for="scopeLabel">Lab / assessment name</label><input id="scopeLabel" type="text" maxlength="80" placeholder="My local practice lab" required>
+              <label for="scopeOrigin">Exact authorized origin</label><input id="scopeOrigin" type="url" placeholder="https://lab.example.test" required>
+              <label for="scopeReference" id="scopeReferenceLabel">Local ownership / authorization reference</label><input id="scopeReference" type="text" maxlength="160" placeholder="For example: self-owned local Juice Shop practice lab" required>
+              <label for="scopeExclusions">Excluded paths <span class="label-optional">optional · comma-separated</span></label><input id="scopeExclusions" type="text" maxlength="6200" placeholder="/admin, /payments">
+              <small class="scope-help">Each excluded path and anything beneath it is kept out of scans and imports. Use paths such as <code>/admin</code>; the whole-site path <code>/</code> cannot be excluded while keeping this scope active.</small>
+              <fieldset><legend>Permitted actions · select only what you are authorized to do</legend>
+                <label class="check-row"><input type="checkbox" name="permission" value="Web checks" checked><span><strong>Web checks</strong><small>Allows the scoped ZAP crawl and passive checks.</small></span></label>
+                <label class="check-row"><input type="checkbox" name="permission" value="Network diagnostics"><span><strong>Network diagnostics</strong><small>Allows review of network scanner results such as Nmap, Nessus, and Greenbone.</small></span></label>
+                <label class="check-row"><input type="checkbox" name="permission" value="Scanner result import" checked><span><strong>Scanner result import</strong><small>Allows importing reports; matching Web checks or Network diagnostics permission is also required.</small></span></label>
+                <label class="check-row"><input type="checkbox" name="permission" value="Layer review"><span><strong>Layer review</strong><small>Allows recording a human review decision only. The app does not execute a validation.</small></span></label>
+              </fieldset>
+              <small class="scope-help">For the current scanner workflow, choose <b>Scanner result import</b> plus at least one source area: <b>Web checks</b> or <b>Network diagnostics</b>. Layer review is optional and separately gated.</small>
+              <label class="attest-row"><input id="scopeAttestation" type="checkbox" required><span id="scopeAttestationText">I control this local lab instance and authorize the selected actions for this exact target.</span></label>
+              <p class="small-warning">This is your authorization record; the app does not independently verify ownership or approval. A reference is a record of permission, not a way to create it.</p>
+              <div class="form-actions"><button class="primary-button" type="submit">Save authorized scope <b>→</b></button></div>
+            </form>
+          </section>
+          <section class="panel registered-panel"><div class="panel-heading"><div><div class="eyebrow">LOCAL REGISTRY</div><h2>Registered labs</h2></div><span class="count-pill" id="scopeCount">0</span></div><p class="scope-registry-note">These are analyst attestations. Delete a scope to move it to Trash with its assessment records.</p><div id="scopeList" class="scope-list"></div>
+            <details class="workspace-trash"><summary>Scope Trash</summary><div id="scopeTrash" class="scope-list"></div></details>
+          </section>
+        </div>
+      </section>
+
+      <section class="page" id="page-findings">
+        <div class="welcome-row">
+          <div><div class="eyebrow">NORMALIZED EVIDENCE</div><h1>Findings & review</h1><p class="lede">Each finding keeps its source trace. Agreement counts distinct tools: 1 = Low, 2+ = Medium; neither confirms a vulnerability.</p></div>
+          <button id="remediationButton" class="primary-button" type="button" aria-haspopup="dialog" disabled>Remediation</button>
+        </div>
+        <div class="filter-row"><div id="activeTargetChip" class="target-chip">No active lab selected</div><div class="filter-controls"><select id="severityFilter"><option value="all">All severities</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option><option>Info</option><option>Unknown</option></select><input id="findingSearch" type="search" placeholder="Search findings"></div></div>
+        <section id="importHistoryPanel" class="panel import-history-panel" hidden><div class="panel-heading"><div><div class="eyebrow">INGESTION AUDIT</div><h2>Recent file imports</h2></div><span class="muted-note">Last 12 files · local record</span></div><div id="importHistoryList" class="import-history-list"></div></section>
+        <div id="findingList" class="finding-list"></div>
+      </section>
+
+      <section class="page" id="page-saved-pdfs">
+        <div class="welcome-row">
+          <div><div class="eyebrow">REPORT LIBRARY</div><h1>Saved PDFs</h1><p class="lede">Find ScopeWeave reports saved in Downloads and open them in a new tab.</p></div>
+          <button id="savedPdfsRefresh" class="secondary-button" type="button">Refresh list</button>
+        </div>
+        <div class="panel saved-pdf-panel">
+          <p id="savedPdfsStatus" class="saved-pdf-status" role="status" aria-live="polite"></p>
+          <ul id="savedPdfsList" class="saved-pdf-list" role="list" aria-label="Saved reports"></ul>
+          <details class="workspace-trash"><summary>PDF Trash</summary><ul id="savedPdfsTrash" class="saved-pdf-list" aria-label="Deleted reports"></ul></details>
+        </div>
+      </section>
+
+      <section class="page" id="page-integrations">
+        <div class="welcome-row"><div><div class="eyebrow">PART 3 · SCANNER EVIDENCE</div><h1>Scanner results</h1><p class="lede">Choose one way to add results from the lab you registered and received permission to review.</p></div></div>
+        <section class="panel intake-panel">
+          <div class="intake-scope-status" id="integrationScopeStatus" role="status" aria-live="polite">Add or select an approved lab first. Scanning and imports stay locked until then.</div>
+          <div class="intake-options">
+            <article class="intake-option zap-option">
+              <div class="intake-option-heading"><span class="tool-icon zap">Z</span><div><h2>Run the allowed ZAP check</h2><span class="status-tag live">LOCAL · PASSIVE</span></div></div>
+              <p>After confirmation, ZAP visits pages on the approved lab and checks the responses it sees. It does not run active attack tests.</p>
+              <button id="zapScanButton" class="primary-button" disabled>Start ZAP check <b>→</b></button>
+              <div id="zapScanStatus" class="zap-scan-status" role="status" aria-live="polite">ZAP must be running on this computer with its local API set up.</div>
+              <small class="intake-note">Uses the saved lab URL and excluded paths. Only start it if you control this local lab or its organizer allows this check.</small>
+            </article>
+            <article class="intake-option import-option">
+              <div class="intake-option-heading"><span class="upload-glyph">⇧</span><div><h2>Import a scanner report</h2><span class="status-tag import">REPORT FILE</span></div></div>
+              <p>Choose a genuine report file created for this approved lab. The app checks its records against the saved lab rules.</p>
+              <button id="integrationsImportButton" class="secondary-button" disabled>Choose report file</button>
+              <small class="intake-note">Accepted reports include Nmap, Nessus, Greenbone, Nikto, ZAP and Burp. Each tool must have the matching permission.</small>
+            </article>
+          </div>
+          <div class="intake-next-step"><strong>After results arrive</strong><span>The app checks the lab rules, keeps the report source, and opens Findings so you can review what came in.</span></div>
+        </section>
+        <details class="overview-foldout supported-tools-foldout">
+          <summary class="overview-foldout-summary"><span><strong>See all supported tools</strong><small>Which tools run here and which only provide report files</small></span><span class="foldout-chevron" aria-hidden="true">⌄</span></summary>
+          <div class="supported-tools-content">
+          <div class="panel table-panel"><div class="table-scroll"><table><thead><tr><th>TOOL</th><th>STATUS</th><th>SUPPORTED INPUT</th><th>ROLE IN THIS BUILD</th></tr></thead><tbody>
+          <tr><td><span class="tool-icon nmap">N</span>Nmap</td><td><span class="status-tag import">IMPORT-ONLY</span></td><td>XML output</td><td>Host, port and service observations</td></tr>
+          <tr><td><span class="tool-icon nessus">N</span>Nessus</td><td><span class="status-tag import">IMPORT-ONLY</span></td><td>.nessus XML</td><td>Infrastructure findings</td></tr>
+          <tr><td><span class="tool-icon greenbone">G</span>OpenVAS / Greenbone</td><td><span class="status-tag import">IMPORT-ONLY</span></td><td>Report XML</td><td>Infrastructure findings</td></tr>
+          <tr><td><span class="tool-icon nikto">K</span>Nikto</td><td><span class="status-tag import">IMPORT-ONLY</span></td><td>XML output</td><td>Web server observations</td></tr>
+          <tr><td><span class="tool-icon zap">Z</span>OWASP ZAP</td><td><span class="status-tag live">LOCAL · PASSIVE</span></td><td>Local ZAP API or JSON report</td><td>Scoped Spider crawl and passive response checks; no active scan</td></tr>
+          <tr><td><span class="tool-icon burp">B</span>Burp Suite</td><td><span class="status-tag import">IMPORT-ONLY</span></td><td>XML issue export</td><td>Analyst-assisted web findings</td></tr>
+          <tr><td><span class="tool-icon meta">M</span>Metasploit</td><td><span class="status-tag planned">PLANNED</span></td><td>None</td><td>No validation adapter or execution</td></tr>
+          </tbody></table></div><div class="table-footer"><span><i class="status-dot"></i> 1 local scoped scan adapter · 5 import adapters · 1 planned</span><span>Scanner licenses are not bundled</span></div></div>
+          <div class="info-callout"><span>ⓘ</span><p><strong>ZAP local setup.</strong> On Windows, open Start ScopeWeave.cmd to connect to installed ZAP automatically. The app limits the crawl to the registered lab and exclusions, then imports passive results.</p></div>
+          </div>
+        </details>
+      </section>
+
+      <section class="page" id="page-activity">
+        <div class="welcome-row"><div><div class="eyebrow">HUMAN OVERSIGHT</div><h1>Decision log</h1><p class="lede">Local records of scope changes, imported files, plan decisions and human validation reviews.</p></div><button id="clearActivityButton" class="secondary-button">Clear local log</button></div>
+        <div class="panel audit-panel"><div class="panel-heading"><div><div class="eyebrow">AUDIT TRAIL</div><h2>Recent activity</h2></div><span class="count-pill" id="activityCount">0</span></div><div id="activityList" class="activity-list"></div></div>
+        <div class="panel validation-panel"><div class="panel-heading"><div><div class="eyebrow">HUMAN APPROVAL GATE</div><h2>Record a validation decision</h2></div><span class="status-tag planned">NO EXECUTOR</span></div><p>This demo records an analyst’s decision only. No payload, exploit, or active validation is available in this prototype.</p><p id="approvalScopeStatus" class="scope-gate-status" aria-live="polite">Select a lab with the Layer review permission to record a decision.</p><div class="validation-form"><select id="approvalFinding"><option value="">Select a finding</option></select><input id="approvalReason" type="text" maxlength="240" placeholder="Why is manual validation being considered?"/><label><input type="checkbox" id="approvalScopeConfirm">I confirm this review is within the approved lab rules.</label><div><button id="rejectValidation" class="secondary-button danger-button" disabled>Record rejection</button><button id="approveValidation" class="primary-button" disabled>Record approval · not executed</button></div></div></div>
+      </section>
+
+      <footer class="app-footer"><span>ScopeWeave · Local prototype</span><span>Scope checked · Evidence traceable · Analyst controlled</span></footer>
+    </main>
+  </div>
+
+  <input id="fileInput" type="file" accept=".xml,.nessus,.json,application/xml,text/xml,application/json" multiple hidden>
+  <div id="toastRegion" class="toast-region" aria-live="polite"></div>
+  <dialog id="reportOptionsDialog" class="modal report-options-modal" aria-labelledby="reportOptionsHeading">
+    <div class="modal-head">
+      <div>
+        <div class="eyebrow">ASSESSMENT REPORT</div>
+        <h2 id="reportOptionsHeading">Report options</h2>
+      </div>
+      <button id="reportOptionsClose" class="icon-button" type="button" aria-label="Close report options">×</button>
+    </div>
+    <p>Choose which findings to show. You can review the report before printing or saving it.</p>
+    <form id="reportOptionsForm">
+      <fieldset class="report-mode-options">
+        <legend>Duplicate findings</legend>
+        <label class="report-mode-option">
+          <input type="radio" name="reportMode" value="all" aria-labelledby="reportModeAll" aria-describedby="reportModeAllHint" required>
+          <span><strong id="reportModeAll">Include all</strong><small id="reportModeAllHint">Show every workspace finding and its recorded evidence.</small></span>
+        </label>
+        <label class="report-mode-option">
+          <input type="radio" name="reportMode" value="deduplicated" aria-labelledby="reportModeDeduplicated" aria-describedby="reportModeDeduplicatedHint" checked>
+          <span><strong id="reportModeDeduplicated">Remove the duplicates</strong><small id="reportModeDeduplicatedHint">Combine matching findings and group repeated evidence with its source references.</small></span>
+        </label>
+        <label class="report-mode-option">
+          <input type="radio" name="reportMode" value="duplicates" aria-labelledby="reportModeDuplicates" aria-describedby="reportModeDuplicatesHint">
+          <span><strong id="reportModeDuplicates">Only duplicates</strong><small id="reportModeDuplicatesHint">Show findings with a duplicate match or repeated evidence.</small></span>
+        </label>
+      </fieldset>
+      <div class="report-options-actions">
+        <p id="reportOptionsStatus" role="status" aria-live="polite" aria-atomic="true"></p>
+        <button class="primary-button" type="submit">Preview report <b aria-hidden="true">→</b></button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="remediationDialog" class="modal remediation-modal" aria-labelledby="remediationHeading" aria-describedby="remediationIntro">
+    <div class="modal-head">
+      <div>
+        <div class="eyebrow">FINDING FOLLOW-UP</div>
+        <h2 id="remediationHeading">Remediation &amp; retesting</h2>
+      </div>
+      <button id="remediationClose" class="icon-button" type="button" aria-label="Close remediation and retesting">×</button>
+    </div>
+    <p id="remediationIntro">Choose which bugs to track, then save fix notes and retest observations. This workflow records your review. It does not apply fixes or run retests.</p>
+    <form id="remediationSelectionForm">
+      <fieldset class="remediation-selection">
+        <legend>Choose bugs to track</legend>
+        <div id="remediationFindingChoices" class="remediation-choices"></div>
+      </fieldset>
+      <div class="remediation-actions">
+        <p id="remediationSelectionStatus" role="status" aria-live="polite"></p>
+        <button class="primary-button" type="submit">Track selected bugs</button>
+      </div>
+    </form>
+    <section id="remediationTracking" class="remediation-tracking" aria-labelledby="remediationTrackingHeading" hidden>
+      <h3 id="remediationTrackingHeading">Remediation details</h3>
+      <label class="remediation-field" for="remediationFindingSelect">Tracked bug
+        <select id="remediationFindingSelect"></select>
+      </label>
+      <div id="remediationSummary" class="remediation-summary"></div>
+      <form id="remediationForm" class="remediation-form">
+        <label class="remediation-field" for="remediationStatus">Remediation status
+          <select id="remediationStatus" required>
+            <option value="planned">Planned</option>
+            <option value="in_progress">In progress</option>
+            <option value="fix_reported">Fix reported</option>
+          </select>
+        </label>
+        <label class="remediation-field" for="remediationNotes">Fix notes
+          <textarea id="remediationNotes" rows="3" maxlength="2000" required placeholder="Describe the planned fix or the change reported by the owner."></textarea>
+        </label>
+        <div class="remediation-actions">
+          <p id="remediationSaveStatus" role="status" aria-live="polite"></p>
+          <button class="primary-button" type="submit">Save remediation</button>
+        </div>
+      </form>
+      <div class="remediation-retest">
+        <h3>Retesting</h3>
+        <p>Save the remediation as <strong>Fix reported</strong> to record a retest. Add observations from a retest you performed within the approved scope.</p>
+        <button id="retestButton" class="secondary-button" type="button" aria-controls="retestForm" disabled>Record retest</button>
+        <form id="retestForm" class="remediation-form" hidden>
+          <label class="remediation-field" for="retestResult">Retest result
+            <select id="retestResult" required>
+              <option value="">Choose result</option>
+              <option value="verified">Fix verified</option>
+              <option value="still_present">Still present</option>
+              <option value="inconclusive">Inconclusive</option>
+            </select>
+          </label>
+          <label class="remediation-field" for="retestEvidence">Retest evidence
+            <textarea id="retestEvidence" rows="3" maxlength="2000" required placeholder="Record how you tested the affected asset, what you observed, and any evidence reference."></textarea>
+          </label>
+          <div class="remediation-actions"><button class="primary-button" type="submit">Save retest</button></div>
+        </form>
+        <p id="remediationRetestStatus" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+  </dialog>
+  <dialog id="helpDialog" class="modal"><div class="modal-head"><div><div class="eyebrow">ABOUT THIS BUILD</div><h2>Honest prototype status</h2></div><button class="icon-button" id="closeHelp">×</button></div><p>The live next step updates locally using scanner report status and finding reviews. Choose local Ollama for an on-device next-step suggestion, or Groq cloud for evidence-linked analysis. With your consent, Groq receives the selected target, scope rules, question, scanner names with available reports, and up to 10 finding summaries with review statuses and short source excerpts. Analyst review notes, full report files, and API keys stay on this computer. If the selected provider fails, the page labels its rule-based fallback.</p><ul><li>AI explanations are interpretations of scanner evidence; they do not confirm a vulnerability or start a scan.</li><li>ZAP runs a bounded crawl and passive response checks only; no active scan or exploit validation runs.</li><li>ZAP must be running locally with its API enabled and matching API key configured for the server.</li><li>A missing report means no results were recorded here; it does not mean the lab is safe.</li><li>Review priority starts from source severity; analyst context can raise it. Unknown or low source confidence is flagged.</li><li>Only scan or import results from your registered self-owned local lab or organizer-approved target.</li><li>Assessment records are stored in this browser. Copying the project folder does not transfer those records.</li></ul><button class="secondary-button" id="helpDone">Got it</button></dialog>
+  <dialog id="bugReportDialog" class="modal bug-report-modal" aria-labelledby="bugReportHeading">
+    <div class="modal-head">
+      <div>
+        <div class="eyebrow">FINDING REVIEW</div>
+        <h2 id="bugReportHeading">Draft bug report</h2>
+      </div>
+      <button id="bugReportClose" class="icon-button" type="button" aria-label="Close bug report">×</button>
+    </div>
+    <p id="bugReportContext" class="bug-report-context"></p>
+    <details class="bug-report-sources">
+      <summary>Source evidence for local review</summary>
+      <div id="bugReportEvidence"></div>
+    </details>
+    <p class="bug-report-guidance">Verify the exact affected URL, describe what you reproduced, and redact sensitive values before copying or downloading the report.</p>
+    <form id="bugReportForm" class="bug-report-form">
+      <label>Title <input name="title" type="text" maxlength="180" required></label>
+      <label>Description <textarea name="description" maxlength="1600" required placeholder="Include the exact affected URL or asset and explain the impact you observed."></textarea></label>
+      <label>Steps to reproduce <textarea name="steps" maxlength="2400" required placeholder="List the steps you used and any required setup."></textarea></label>
+      <div class="bug-report-results">
+        <label>Expected result <textarea name="expected" maxlength="1200" required></textarea></label>
+        <label>Actual result <textarea name="actual" maxlength="1200" required></textarea></label>
+      </div>
+      <label>Severity you assessed
+        <select name="severity" required>
+          <option value="">Choose severity</option>
+          <option>Informational</option>
+          <option>Low</option>
+          <option>Medium</option>
+          <option>High</option>
+          <option>Critical</option>
+        </select>
+      </label>
+      <label>Evidence to include (optional) <textarea name="evidence" maxlength="2000" placeholder="Paste only the relevant excerpt with sensitive values removed."></textarea></label>
+      <div class="bug-report-actions">
+        <p id="bugReportStatus" role="status" aria-live="polite"></p>
+        <button class="secondary-button" type="submit" name="action" value="download">Download .txt</button>
+        <button class="primary-button" type="submit" name="action" value="copy">Copy report</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="findingReviewDialog" class="modal finding-review-modal" aria-labelledby="findingReviewHeading">
+    <div class="modal-head">
+      <div>
+        <div class="eyebrow">ANALYST TRIAGE</div>
+        <h2 id="findingReviewHeading">Review finding</h2>
+      </div>
+      <button id="findingReviewClose" class="icon-button" type="button" aria-label="Close finding review">×</button>
+    </div>
+    <div id="findingReviewSummary" class="finding-review-context"></div>
+    <details id="findingReviewSources" class="finding-review-sources">
+      <summary>Imported source evidence</summary>
+      <div id="findingReviewEvidence"></div>
+    </details>
+    <form id="findingReviewForm" class="finding-review-form">
+      <label for="findingReviewStatus">Review status
+        <select id="findingReviewStatus" name="status" required>
+          <option value="needs_review">Needs review</option>
+          <option value="confirmed">Confirmed issue</option>
+          <option value="false_positive">False positive</option>
+        </select>
+      </label>
+      <label for="findingReviewReason">Reason
+        <textarea id="findingReviewReason" name="reason" rows="3" maxlength="1200" required placeholder="Explain why you chose this status."></textarea>
+      </label>
+      <label for="findingReviewEvidenceNote"><span id="findingReviewEvidenceLabel">Evidence or reference</span>
+        <small id="findingReviewEvidenceHelp">Required for Confirmed issue or False positive. Include a relevant observation or reference from the approved scope and redact sensitive values.</small>
+        <textarea id="findingReviewEvidenceNote" name="evidence" rows="3" maxlength="2000" aria-labelledby="findingReviewEvidenceLabel" aria-describedby="findingReviewEvidenceHelp" placeholder="Record what you observed or where the supporting evidence can be found."></textarea>
+      </label>
+      <div class="finding-review-actions">
+        <p id="findingReviewFeedback" role="status" aria-live="polite"></p>
+        <button class="primary-button" type="submit">Save review</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>
