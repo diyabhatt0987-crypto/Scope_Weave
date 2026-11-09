@@ -77,7 +77,7 @@ class SavedPdfTests(unittest.TestCase):
         self.assertEqual(handler.wfile.getvalue(), self.report)
 
     def test_both_endpoints_require_exact_local_origin_and_host(self):
-        for path in ("/api/saved-pdfs", "/api/saved-pdfs/open", "/api/saved-pdfs/trash", "/api/saved-pdfs/restore"):
+        for path in ("/api/saved-pdfs", "/api/saved-pdfs/open", "/api/saved-pdfs/trash", "/api/saved-pdfs/restore", "/api/saved-pdfs/export"):
             for origin in (None, "https://example.test", f"http://localhost:{server.PORT}"):
                 with self.subTest(path=path, origin=origin):
                     handler = self.request(path, origin=origin)
@@ -116,3 +116,39 @@ class SavedPdfTests(unittest.TestCase):
                 handler = self.request("/api/saved-pdfs/trash", origin=origin, payload={"name": name})
                 handler.send_response.assert_called_once_with(status)
         self.assertEqual((self.downloads / "private.pdf").read_bytes(), self.private)
+
+    def test_export_appears_in_library_and_can_be_restored(self):
+        origin = f"http://127.0.0.1:{server.PORT}"
+        payload = {"body": '<main class="report-paper"><h1>Test report</h1></main>', "styles": "h1{color:black}"}
+
+        def render(arguments, **kwargs):
+            output = next(arg.split("=", 1)[1] for arg in arguments if arg.startswith("--print-to-pdf="))
+            Path(output).write_bytes(pdf_with_title(b"(ScopeWeave VAPT Assessment Report)"))
+
+        with patch.object(server, "pdf_browser", return_value="chrome"), patch.object(server.subprocess, "run", side_effect=render):
+            result = self.request("/api/saved-pdfs/export", origin=origin, payload=payload)
+        result.send_response.assert_called_once_with(201)
+        name = json.loads(result.wfile.getvalue())["name"]
+        library = self.downloads / "ScopeWeave Reports"
+        self.assertTrue((library / name).is_file())
+        self.assertFalse((self.downloads / name).exists())
+        reports = json.loads(self.request("/api/saved-pdfs", origin=origin).wfile.getvalue())["reports"]
+        self.assertTrue(any(item["name"] == name and item["library"] for item in reports))
+        self.assertTrue(any(item["name"] == "renamed.pdf" for item in reports))
+
+        location = {"name": name, "library": True}
+        opened = self.request("/api/saved-pdfs/open", origin=origin, payload=location)
+        opened.send_response.assert_called_once_with(200)
+        self.assertTrue(opened.wfile.getvalue().startswith(b"%PDF-"))
+        self.request("/api/saved-pdfs/trash", origin=origin, payload=location).send_response.assert_called_once_with(200)
+        self.assertFalse((library / name).exists())
+        self.request("/api/saved-pdfs/restore", origin=origin, payload=location).send_response.assert_called_once_with(200)
+        self.assertTrue((library / name).is_file())
+
+    def test_printable_report_keeps_escaped_text_and_removes_event_handlers(self):
+        html = server.printable_report_html('<p class="note" onclick="alert(1)">&lt;script&gt;</p>', "")
+        self.assertIn('<p class="note">&lt;script&gt;</p>', html)
+        self.assertNotIn("onclick", html)
+        for body, styles in (("<iframe></iframe>", ""), ("<p>Report</p>", "</style><script>")):
+            with self.subTest(body=body, styles=styles), self.assertRaises(ValueError):
+                server.printable_report_html(body, styles)
